@@ -1,0 +1,174 @@
+---
+title: "TP BATS"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r}
+library(ggplot2)
+library(corrplot)
+
+bats <- read.table(file="bats.csv", sep=";", skip=3, header=T)
+names(bats)
+
+```
+
+# Part 2: Study of the relationship between brain waeight and body mass
+```{r}
+phyto <- bats[(bats$Diet==1),]
+
+ggplot(data = bats, aes(x=BOW, y=BRW)) +
+  geom_point() +
+  ggtitle("Brain weight as a function of body mass") +
+  xlab("Body mass (g)") +
+  ylab("Brain weight (mg)")
+```
+It's weird there is a bat that is very huge compared to others
+
+```{r}
+reg <- lm(BRW ~BOW, data=phyto)
+```
+
+The mathematical model constructed by r is:
+$$
+\begin{equation}
+Y = \beta_0 + \beta_1 X
+\end{equation}
+$$
+
+```{r}
+
+summary(reg)
+
+```
+The estimate of the intercept is `623.4469`
+the t-value for the significiancy of the correlation is `22.659` which corresponds to a p-value of `2e-16` meaning that we can reject the null hypothesis
+the null hypothesis is:
+$$
+\begin{equation}
+H_0: \beta_1 = 0
+\end{equation}
+$$
+We can say that the body mass of bats is positively correlated to their brain weight
+
+The coefficient of determination $R^2$ has a value of `0.95`
+
+```{r}
+
+anova(reg)
+
+```
+
+???
+
+
+```{r}
+
+plot(reg$fitted.values, reg$residuals, xlab="Predicted", ylab="Residuals")
+
+```
+We can see that all the predictions are squeezed in the left because of one single point far at `10000` mg. This leads to huge errors around `2000`
+
+```{r}
+plot(reg, 4)
+phytobis = phyto[which(phyto$BRW < 8000),]
+reg2 <- lm(BRW ~ BOW, data=phytobis)
+summary(reg2)
+
+```
+
+```{r}
+
+par(mfcol=c(2, 2))
+plot(reg)
+
+```
+```{r}
+
+par(mfcol=c(2, 2))
+plot(reg2)
+
+```
+## First plot
+The second regression looks much better base on the y-scale of the residuals. But there is still some structure in the second one.
+
+## Second plot
+In the first regression, value of residuals grows with respect to the output value. Whereas in the second one, it's almost flat in this way. As we don't want this kind of strutures, the second would be preferable
+
+## Third plot
+The comparison between the theoretical quantiles and the normal law is also better for the second regression. In the first one, we see that several points are way off the theoretical line in the extremas. Whereas on the second one, they are much closer.
+
+# Part 3, study of the contribution of parts of the brain to thr brain weight
+```{r}
+
+phytoNum=phyto[, c(4:8)]
+mat.cor = cor(phytoNum)
+corrplot(mat.cor, type="upper")
+
+```
+```{r}
+
+cor.test(phyto$BRW, phyto$HIP)
+cor.test(phyto$BRW, phyto$MOB)
+cor.test(phyto$BRW, phyto$AUD)
+
+```
+
+For the volume of the hyppocampus, and the olfactory bulb, the p-values are extremly low so we are pretty confident that they are correlated with the brain weight.
+For the auditory nuclei volume, the p-value is larger but still we can say with significiance that it's correlated with the brain weight.
+
+```{r}
+
+regm <- lm(BRW~AUD+MOB+HIP, data=phytobis)
+summary(regm)
+anova(regm)
+
+```
+
+The linear regression finds significant coefficients only for HIP nad AUD. 
+The $R^2$ is very good (`0.9693`). The anova find significant coeficients for all three features (AUD, MOB, HIP)
+
+```{r}
+
+par(mfcol=c(2, 2))
+plot(regm)
+
+```
+The only weird thing is the theoretical quantiles of the normal distribution. As previously we see extrema deviating from the theoretical line.
+
+The coefficient obtained are:
+* `48.2357` for the auditory nuclei
+* `-0.3447` for the olfactory bulb
+* `12.8258` for the hippocampus
+
+The surprisingly low coefficient associated to MOB (surprised according to what we saw just before) can be explained according to me by the fact that it's very correlated to HIP, meaning that it do not add much more information than HIP. As such we can probably remove it without impacting significantly the results.
+
+```{r}
+
+reg0 <- lm(BRW~1, data = phyto)
+step(reg0, scope=BRW~AUD + MOB + HIP, direction='forward')
+
+```
+
+Apparently it constructs several models by adding variables at each step. The AIC measure apparently is better when lower and penalizes adding to much variables without gaining performance. The lower among all models is the one with all considered variables. So according to AIC, we can keep it as such.
+
+# Part 4:
+
+```{r}
+bats$Diet_F <- as.factor(bats$Diet)
+with(bats, plot(AUD~Diet))
+with(bats, plot(AUD~Diet_F))
+```
+The second one is much more readable because it takes into account the modality of the data. As such, r plot the AUD, which is a quantitative data, using a boxplot. For the first one, it's just a classical scatter plot. It's less readable, but it allow us to see samples that are very far from the rest of the distribution
+
+```{r}
+
+reg = lm(AUD~Diet_F, data=bats)
+anova(reg)
+
+```
+
+The anova is not very conclusive. We can seea really poor p-value of `0.423`. As such, it can be surprising, but given the previous plots, we can already see visually that there is not a lot of data for Diet 2 and diet 4.
+If I had to conduct further studies on the subject, i would either try to collect more data, or maybe try to compare the diet against the mass proportion of the auditory bulb compared to the total brain weight.
+
